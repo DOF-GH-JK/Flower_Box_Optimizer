@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grand Hotel — Flower Box Optimizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .scrollable-table::-webkit-scrollbar { width: 8px; }
+        .scrollable-table::-webkit-scrollbar-thumb { background-color: #1a3a1a; border-radius: 4px; }
+        .scrollable-table::-webkit-scrollbar-track { background: #e5e7eb; }
+        .inter-font { font-family: 'Inter', sans-serif; }
+        .data-input {
+            width: 100%; padding: 4px 8px; border-radius: 4px; border: 1px solid #d1d5db;
+            text-align: center; transition: all 0.15s; background-color: #fff;
+        }
+        .data-input:focus {
+            outline: none; border-color: #1a5a1a; box-shadow: 0 0 0 2px rgba(26, 58, 26, 0.2); background-color: #f7fff7;
+        }
+        .span-input { text-align: left; padding-left: 10px; }
+        .count-input { width: 50px; padding: 4px; text-align: center; font-weight: 600; }
+        .sticky-header th { z-index: 10; }
+        .is-dragging { opacity: 0.4; }
+        tr.drag-target { border-top: 4px solid #1a5a1a !important; border-bottom: 4px solid #1a5a1a !important; }
+        .gh-green { color: #1a3a1a; }
+        .gh-green-bg { background-color: #1a3a1a; }
+        .gh-gold { color: #c9a84c; }
+    </style>
+</head>
+<body class="bg-gray-50 p-4 inter-font">
+
+    <div class="max-w-4xl mx-auto">
+        <div class="flex items-center gap-4 mb-2">
+            <h1 class="text-3xl font-extrabold gh-green">Grand Hotel</h1>
+            <span class="text-gray-400 text-2xl font-light">|</span>
+            <h1 class="text-2xl font-bold text-gray-600">Flower Box Span Optimizer</h1>
+        </div>
+        <p class="text-gray-500 mb-6 text-sm">Front porch flower box sizing tool — 40 spans, 660 feet, West to East. Configure box sizes, optimize combinations, minimize gaps.</p>
+
+        <!-- Configuration Panel -->
+        <div class="bg-white p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Box Configuration</h2>
+            <div id="config-container" class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="relative">
+                    <label class="block text-sm font-medium text-gray-700">Small (L1) — Confirmed</label>
+                    <input type="number" id="l1" value="30" step="1" min="1" class="mt-1 block w-full rounded-lg border p-2 border-gray-300 shadow-sm focus:ring-green-700">
+                    <span class="text-xs text-gray-400 mt-1 block">inches</span>
+                </div>
+                <div class="relative">
+                    <label class="block text-sm font-medium text-gray-700">Large (L2) — Confirmed</label>
+                    <input type="number" id="l2" value="47" step="1" min="1" class="mt-1 block w-full rounded-lg border p-2 border-gray-300 shadow-sm focus:ring-green-700">
+                    <span class="text-xs text-gray-400 mt-1 block">inches</span>
+                </div>
+                <div class="relative bg-blue-50 p-2 rounded-lg border border-blue-200">
+                    <label class="block text-sm font-bold text-blue-800">Third Size (L3) — Optional</label>
+                    <input type="number" id="l3" value="39" step="1" min="1" class="mt-1 block w-full rounded-lg border p-2 border-gray-300 shadow-sm focus:ring-blue-500">
+                    <span class="text-xs text-blue-700 mt-1 block">candidate: 39"</span>
+                </div>
+                <div class="relative bg-yellow-50 p-2 rounded-lg border border-yellow-200">
+                    <label class="block text-sm font-bold text-yellow-800">Max L3 per Span</label>
+                    <input type="number" id="max-l3-count" value="0" step="1" min="0" class="mt-1 block w-full rounded-lg border p-2 border-gray-300 text-center font-bold">
+                    <span class="text-xs text-yellow-700 mt-1 block">0 = two-size only · raise to allow L3</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Metrics -->
+        <div class="bg-green-50 p-6 rounded-xl shadow-inner mb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <p class="text-sm font-medium gh-green">Total Gap</p>
+                <p id="total-gap" class="text-2xl font-bold gh-green">0.00 in</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-red-600">Max Single Gap</p>
+                <p id="max-gap" class="text-2xl font-bold text-red-600">0.00 in</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-600">Total Boxes</p>
+                <p id="total-boxes" class="text-2xl font-bold text-gray-800">0</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-600">Spans Over 8"</p>
+                <p id="spans-over" class="text-2xl font-bold text-gray-800">0</p>
+            </div>
+        </div>
+
+        <!-- Table & Controls -->
+        <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+            <div class="p-4 bg-gray-100 border-b flex flex-wrap gap-4 justify-between items-center">
+                <h2 class="text-xl font-semibold text-gray-800" id="span-count-header">Span Requirements</h2>
+                <div class="space-x-2 flex items-center">
+                    <button id="reset-auto-btn" class="bg-yellow-500 hover:bg-yellow-600 text-white text-sm font-medium py-2 px-3 rounded shadow transition">
+                        <i class="fas fa-undo mr-1"></i> Reset Auto
+                    </button>
+                    <button id="add-span-btn" class="gh-green-bg hover:opacity-90 text-white text-sm font-medium py-2 px-3 rounded shadow transition">
+                        <i class="fas fa-plus mr-1"></i> Add Row
+                    </button>
+                    <button id="generate-summary-btn" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-3 rounded shadow transition">
+                        <i class="fas fa-file-alt mr-1"></i> Summary
+                    </button>
+                </div>
+            </div>
+            <div class="scrollable-table max-h-[50vh] overflow-y-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 sticky top-0 sticky-header">
+                        <tr>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Label/Loc.</th>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Span (in)</th>
+                            <th class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" id="header-l1">S</th>
+                            <th class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" id="header-l2">L</th>
+                            <th class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" id="header-l3">3rd</th>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gap</th>
+                            <th class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per Side</th>
+                            <th class="px-2 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Data Management Panel -->
+        <div id="summary-panel" class="bg-gray-100 p-4 rounded-xl mt-6 border border-gray-300">
+            <div class="mb-6 pb-4 border-b border-gray-300">
+                <label class="block text-lg font-bold text-gray-700 mb-2"><i class="fas fa-file-import mr-2 text-green-600"></i> Import Data from Summary</label>
+                <p class="text-sm text-gray-600 mb-3">Paste a previous "Order Summary" report below to load all spans and configurations.</p>
+                <textarea id="import-input" rows="6" placeholder="Paste summary text here..." class="w-full p-3 border border-gray-300 rounded-lg bg-white font-mono text-xs md:text-sm resize-none"></textarea>
+                <button id="import-data-btn" class="mt-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded shadow transition">
+                    <i class="fas fa-upload mr-1"></i> Import & Apply Data
+                </button>
+                <span id="import-message" class="ml-3 text-green-600 opacity-0 transition duration-300 font-semibold">Data Imported!</span>
+            </div>
+            <div>
+                <label class="block text-lg font-bold text-gray-700 mb-2"><i class="fas fa-file-export mr-2 text-blue-600"></i> Export / Order Summary</label>
+                <textarea id="summary-output" rows="10" readonly class="w-full p-3 border border-gray-300 rounded-lg bg-white font-mono text-xs md:text-sm resize-none"></textarea>
+                <button id="copy-summary-btn" class="gh-green-bg hover:opacity-90 text-white text-sm font-medium py-2 px-4 rounded shadow transition">
+                    <i class="fas fa-copy mr-1"></i> Copy to Clipboard
+                </button>
+                <span id="copy-message" class="ml-3 text-green-600 opacity-0 transition duration-300 font-semibold">Copied!</span>
+            </div>
+        </div>
+
+        <p class="text-center text-xs text-gray-400 mt-6">Grand Hotel Mackinac Island — Facilities Department — Flower Box Span Calculator v2</p>
+    </div>
+
+    <script>
+        function generateId() {
+            return 'span-' + Math.random().toString(36).substr(2, 9);
+        }
+
+        const RAW_SPANS = [
+            {s: 54.75, l:"Span 1 (W Parlor Entry)"}, {s: 93.48, l:"Span 2"}, {s: 93.48, l:"Span 3"},
+            {s: 53.44, l:"Span 4"}, {s: 299.28, l:"Span 5"}, {s: 192.36, l:"Span 6"},
+            {s: 172.44, l:"Span 7"}, {s: 183.96, l:"Span 8"}, {s: 182.52, l:"Span 9"},
+            {s: 183.24, l:"Span 10"}, {s: 181.92, l:"Span 11"}, {s: 182.28, l:"Span 12"},
+            {s: 182.64, l:"Span 13"}, {s: 184.80, l:"Span 14"}, {s: 180.48, l:"Span 15"},
+            {s: 152.40, l:"Span 16"}, {s: 39.00, l:"Span 17 (Narrow)"}, {s: 153.72, l:"Span 18"},
+            {s: 152.64, l:"Span 19"}, {s: 109.92, l:"Span 20"}, {s: 109.92, l:"Span 21"},
+            {s: 156.48, l:"Span 22"}, {s: 153.96, l:"Span 23"}, {s: 39.00, l:"Span 24 (Narrow)"},
+            {s: 178.56, l:"Span 25"}, {s: 155.64, l:"Span 26"}, {s: 146.16, l:"Span 27"},
+            {s: 135.00, l:"Span 28"}, {s: 161.16, l:"Span 29"}, {s: 153.84, l:"Span 30"},
+            {s: 159.60, l:"Span 31"}, {s: 183.60, l:"Span 32"}, {s: 186.60, l:"Span 33"},
+            {s: 185.04, l:"Span 34"}, {s: 187.68, l:"Span 35"}, {s: 211.32, l:"Span 36"},
+            {s: 162.60, l:"Span 37"}, {s: 153.96, l:"Span 38"}, {s: 177.48, l:"Span 39"},
+            {s: 193.80, l:"Span 40 (E End)"}
+        ];
+
+        let currentSpans = RAW_SPANS.map(r => ({
+            id: generateId(), label: r.l, span: r.s,
+            n1: null, n2: null, n3: null, gap: 0
+        }));
+
+        const els = {
+            l1: document.getElementById('l1'),
+            l2: document.getElementById('l2'),
+            l3: document.getElementById('l3'),
+            maxL3: document.getElementById('max-l3-count'),
+            tbody: document.getElementById('results-table-body'),
+            totalGap: document.getElementById('total-gap'),
+            maxGap: document.getElementById('max-gap'),
+            totalBoxes: document.getElementById('total-boxes'),
+            spansOver: document.getElementById('spans-over'),
+            config: document.getElementById('config-container'),
+            summaryOut: document.getElementById('summary-output'),
+            copyMsg: document.getElementById('copy-message'),
+            headerL1: document.getElementById('header-l1'),
+            headerL2: document.getElementById('header-l2'),
+            headerL3: document.getElementById('header-l3'),
+            spanHeader: document.getElementById('span-count-header'),
+            importIn: document.getElementById('import-input'),
+            importMsg: document.getElementById('import-message')
+        };
+
+        let draggedItem = null;
+
+        function createSpanRow(item) {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-gray-50 cursor-move transition-all';
+            tr.dataset.id = item.id;
+            tr.draggable = true;
+
+            const mkCell = (html, cls) => {
+                const td = document.createElement('td');
+                td.className = cls || 'px-2 py-2 text-sm';
+                td.innerHTML = html;
+                return td;
+            };
+
+            tr.appendChild(mkCell(`<input type="text" value="${item.label}" class="data-input" data-type="label" style="text-align:left;">`));
+            tr.appendChild(mkCell(`<input type="number" step="0.01" value="${item.span.toFixed(2)}" class="data-input span-input" data-type="span">`));
+
+            const mkCount = (val, type) => `<input type="number" min="0" value="${val !== null ? val : ''}" class="data-input count-input bg-yellow-50/50" data-type="${type}" placeholder="Auto">`;
+            tr.appendChild(mkCell(mkCount(item.n1, 'n1'), 'text-center'));
+            tr.appendChild(mkCell(mkCount(item.n2, 'n2'), 'text-center'));
+            tr.appendChild(mkCell(mkCount(item.n3, 'n3'), 'text-center'));
+
+            tr.appendChild(mkCell('0.00', 'gap-cell px-2 py-2 font-semibold text-sm'));
+            tr.appendChild(mkCell('0.00', 'perside-cell px-2 py-2 text-sm text-gray-500'));
+
+            tr.appendChild(mkCell(`<button class="text-red-500 hover:text-red-700" data-action="delete"><i class="fas fa-trash"></i></button>`, 'text-center'));
+
+            return tr;
+        }
+
+        function calculateOptimal(span, L1, L2, L3, maxL3) {
+            if (span <= 0) return { n1:0, n2:0, n3:0, gap:0 };
+            let minGap = Infinity, best = { n1:0, n2:0, n3:0 }, minPieces = Infinity;
+            const limit1 = Math.min(20, Math.floor(span/L1) + 1);
+            const limit2 = Math.min(20, Math.floor(span/L2) + 1);
+
+            for (let n1 = 0; n1 <= limit1; n1++) {
+                for (let n2 = 0; n2 <= limit2; n2++) {
+                    const covered = (n1*L1) + (n2*L2);
+                    const rem = span - covered;
+                    if (rem >= 0) {
+                        const n3 = Math.min(Math.floor(rem / L3), maxL3);
+                        const gap = rem - (n3 * L3);
+                        const cnt = n1 + n2 + n3;
+                        if (gap < minGap || (gap === minGap && cnt < minPieces)) {
+                            minGap = gap; minPieces = cnt;
+                            best = { n1, n2, n3 };
+                        }
+                    }
+                }
+            }
+            return { ...best, gap: minGap };
+        }
+
+        function runAnalysis() {
+            const L1 = parseFloat(els.l1.value) || 30;
+            const L2 = parseFloat(els.l2.value) || 47;
+            const L3 = parseFloat(els.l3.value) || 39;
+            const maxL3 = isNaN(parseInt(els.maxL3.value)) ? 0 : parseInt(els.maxL3.value);
+
+            els.headerL1.textContent = `S (${L1.toFixed(0)}")`;
+            els.headerL2.textContent = `L (${L2.toFixed(0)}")`;
+            els.headerL3.textContent = `3rd (${L3.toFixed(0)}")`;
+
+            let totalG = 0, maxG = 0, tBoxes = 0, over8 = 0;
+            const rows = els.tbody.querySelectorAll('tr');
+
+            currentSpans.forEach((item, idx) => {
+                const row = rows[idx];
+                if (!row) return;
+
+                const in1 = row.querySelector('[data-type="n1"]');
+                const in2 = row.querySelector('[data-type="n2"]');
+                const in3 = row.querySelector('[data-type="n3"]');
+                const isManual = item.n1 !== null || item.n2 !== null || item.n3 !== null;
+
+                let res;
+                if (isManual) {
+                    const n1 = item.n1 || 0;
+                    const n2 = item.n2 || 0;
+                    const n3 = item.n3 || 0;
+                    res = { n1, n2, n3, gap: Math.max(0, item.span - (n1*L1 + n2*L2 + n3*L3)) };
+                    in1.value = n1 || ''; in2.value = n2 || ''; in3.value = n3 || '';
+                } else {
+                    res = calculateOptimal(item.span, L1, L2, L3, maxL3);
+                    in1.value = res.n1 || ''; in2.value = res.n2 || ''; in3.value = res.n3 || '';
+                }
+
+                item.gap = res.gap;
+                const perSide = res.gap / 2;
+                totalG += res.gap;
+                if (res.gap > maxG) maxG = res.gap;
+                if (res.gap > 8) over8++;
+                tBoxes += (res.n1 + res.n2 + res.n3);
+
+                const gapEl = row.querySelector('.gap-cell');
+                gapEl.textContent = res.gap.toFixed(2);
+                gapEl.className = `gap-cell px-2 py-2 font-semibold text-sm ${res.gap > 8 ? 'text-red-600' : (res.gap > 4 ? 'text-orange-500' : 'text-green-600')}`;
+
+                const psEl = row.querySelector('.perside-cell');
+                psEl.textContent = perSide.toFixed(2);
+                psEl.className = `perside-cell px-2 py-2 text-sm ${perSide > 4 ? 'text-red-500 font-semibold' : 'text-gray-500'}`;
+            });
+
+            els.totalGap.textContent = totalG.toFixed(2) + " in";
+            els.maxGap.textContent = maxG.toFixed(2) + " in";
+            els.maxGap.className = `text-2xl font-bold ${maxG > 8 ? 'text-red-600' : 'text-green-700'}`;
+            els.totalBoxes.textContent = tBoxes;
+            els.spansOver.textContent = over8;
+            els.spansOver.className = `text-2xl font-bold ${over8 > 0 ? 'text-red-600' : 'text-green-700'}`;
+        }
+
+        function render() {
+            els.tbody.removeEventListener('dragstart', handleDragStart);
+            els.tbody.removeEventListener('dragover', handleDragOver);
+            els.tbody.removeEventListener('dragleave', handleDragLeave);
+            els.tbody.removeEventListener('drop', handleDrop);
+            els.tbody.removeEventListener('dragend', handleDragEnd);
+
+            els.tbody.innerHTML = '';
+            currentSpans.forEach(item => els.tbody.appendChild(createSpanRow(item)));
+            els.spanHeader.textContent = `Span Requirements (${currentSpans.length} Spans)`;
+
+            els.tbody.addEventListener('dragstart', handleDragStart);
+            els.tbody.addEventListener('dragover', handleDragOver);
+            els.tbody.addEventListener('dragleave', handleDragLeave);
+            els.tbody.addEventListener('drop', handleDrop);
+            els.tbody.addEventListener('dragend', handleDragEnd);
+        }
+
+        function clearDragStyles() {
+            els.tbody.querySelectorAll('tr').forEach(row => {
+                row.classList.remove('is-dragging', 'drag-target');
+                row.style.borderTopWidth = '0'; row.style.borderBottomWidth = '0';
+            });
+        }
+        function getTargetRow(e) { let t = e.target.closest('tr'); return (t && t !== draggedItem) ? t : null; }
+        function handleDragStart(e) { const r = e.target.closest('tr'); if(!r) return; draggedItem = r; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => r.classList.add('is-dragging'), 0); }
+        function handleDragOver(e) { e.preventDefault(); clearDragStyles(); const t = getTargetRow(e); if(t) { t.classList.add('drag-target'); const rect = t.getBoundingClientRect(); if(e.clientY - rect.top < rect.height/2) { t.style.borderTopWidth='4px'; t.style.borderBottomWidth='0'; } else { t.style.borderBottomWidth='4px'; t.style.borderTopWidth='0'; } } }
+        function handleDragLeave(e) { const t = e.target.closest('tr'); if(t) { t.classList.remove('drag-target'); t.style.borderTopWidth='0'; t.style.borderBottomWidth='0'; } }
+        function handleDrop(e) {
+            e.preventDefault();
+            const targetRow = getTargetRow(e);
+            if (draggedItem && targetRow) {
+                const di = currentSpans.findIndex(i => i.id === draggedItem.dataset.id);
+                const ti = currentSpans.findIndex(i => i.id === targetRow.dataset.id);
+                const rect = targetRow.getBoundingClientRect();
+                const below = e.clientY - rect.top > rect.height / 2;
+                let ins = below ? ti + 1 : ti;
+                if (di !== -1 && ti !== -1) {
+                    const [item] = currentSpans.splice(di, 1);
+                    if (di < ti && below) ins--;
+                    currentSpans.splice(ins, 0, item);
+                    render(); runAnalysis();
+                }
+            }
+            clearDragStyles(); draggedItem = null;
+        }
+        function handleDragEnd() { clearDragStyles(); draggedItem = null; }
+
+        function generateSummary() {
+            runAnalysis();
+            let t1=0, t2=0, t3=0;
+            const L1=els.l1.value, L2=els.l2.value, L3=els.l3.value;
+            const tableRows = currentSpans.map(item => {
+                const row = document.querySelector(`tr[data-id="${item.id}"]`);
+                const n1 = parseInt(row.querySelector('[data-type="n1"]').value) || 0;
+                const n2 = parseInt(row.querySelector('[data-type="n2"]').value) || 0;
+                const n3 = parseInt(row.querySelector('[data-type="n3"]').value) || 0;
+                t1+=n1; t2+=n2; t3+=n3;
+                return `| ${item.label.padEnd(24)} | ${item.span.toFixed(2).padStart(7)} | ${String(n1).padStart(3)} | ${String(n2).padStart(3)} | ${String(n3).padStart(3)} | ${item.gap.toFixed(2).padStart(6)} | ${(item.gap/2).toFixed(2).padStart(6)} |`;
+            }).join('\n');
+
+            els.summaryOut.value = `GRAND HOTEL - FLOWER BOX ORDER SUMMARY
+================================================
+Config: L1=${L1}", L2=${L2}", L3=${L3}" (Max L3=${els.maxL3.value})
+
+TOTALS:
+  Small (${L1}"): ${t1}
+  Large (${L2}"): ${t2}
+  Third (${L3}"): ${t3}
+  -----------------
+  Grand Total: ${t1+t2+t3} boxes
+
+METRICS:
+  Total Gap:     ${els.totalGap.textContent}
+  Max Gap:       ${els.maxGap.textContent}
+  Spans Over 8": ${els.spansOver.textContent}
+
+DETAILS:
+| Location                 |    Span |  S  |  L  | 3rd |    Gap | /Side  |
+|--------------------------|---------|-----|-----|-----|--------|--------|
+${tableRows}`;
+            els.summaryOut.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function importData() {
+            const data = els.importIn.value;
+            if (!data) { flashMsg(els.importMsg, "Please paste data first!", true); return; }
+            try {
+                const cm = data.match(/Config: L1=(\d+\.?\d*)"?, L2=(\d+\.?\d*)"?, L3=(\d+\.?\d*)"? \(Max L3=(\d+)\)/);
+                if (cm) { els.l1.value = parseFloat(cm[1]); els.l2.value = parseFloat(cm[2]); els.l3.value = parseFloat(cm[3]); els.maxL3.value = parseInt(cm[4]); }
+                const lines = data.split('\n');
+                const di = lines.findIndex(l => l.includes('DETAILS:'));
+                const ns = [];
+                if (di !== -1) {
+                    for (let i = di + 3; i < lines.length; i++) {
+                        const l = lines[i].trim();
+                        if (l.startsWith('|')) {
+                            const p = l.split('|').map(x => x.trim()).filter(x => x);
+                            if (p.length >= 6) {
+                                const span = parseFloat(p[1]), n1 = parseInt(p[2]), n2 = parseInt(p[3]), n3 = parseInt(p[4]);
+                                if (!isNaN(span)) ns.push({ id: generateId(), label: p[0], span, n1: n1||null, n2: n2||null, n3: n3||null, gap: 0 });
+                            }
+                        }
+                    }
+                }
+                if (ns.length > 0) { currentSpans = ns; render(); }
+                runAnalysis();
+                flashMsg(els.importMsg, "Data Imported!", false);
+            } catch(e) { console.error(e); flashMsg(els.importMsg, "Import failed!", true); }
+        }
+
+        function flashMsg(el, msg, isErr) {
+            el.textContent = msg;
+            el.classList.remove('opacity-0', 'text-green-600', 'text-red-600');
+            el.classList.add(isErr ? 'text-red-600' : 'text-green-600');
+            setTimeout(() => el.classList.add('opacity-0'), 2000);
+        }
+
+        els.config.addEventListener('input', runAnalysis);
+        els.tbody.addEventListener('input', e => {
+            const row = e.target.closest('tr');
+            const item = currentSpans.find(i => i.id === row.dataset.id);
+            if(!item) return;
+            const t = e.target.dataset.type;
+            if(t === 'span') { item.span = parseFloat(e.target.value) || 0; }
+            else if(t === 'label') { item.label = e.target.value; return; }
+            else if(t === 'n1' || t === 'n2' || t === 'n3') {
+                const v = e.target.value;
+                item[t] = v === '' ? null : (parseInt(v) || 0);
+                if (item.n1 === null && item.n2 === null && item.n3 === null) {
+                    // all cleared: row returns to full auto
+                } else {
+                    // partial manual: treat blanks as 0 so the row is fully user-controlled
+                    if (item.n1 === null) item.n1 = 0;
+                    if (item.n2 === null) item.n2 = 0;
+                    if (item.n3 === null) item.n3 = 0;
+                    item[t] = v === '' ? 0 : (parseInt(v) || 0);
+                }
+            }
+            runAnalysis();
+        });
+        els.tbody.addEventListener('click', e => {
+            if(e.target.closest('button[data-action="delete"]')) {
+                currentSpans = currentSpans.filter(i => i.id !== e.target.closest('tr').dataset.id);
+                render(); runAnalysis();
+            }
+        });
+        document.getElementById('add-span-btn').addEventListener('click', () => {
+            currentSpans.push({ id: generateId(), label: `Span ${currentSpans.length+1}`, span: 100, n1:null, n2:null, n3:null, gap:0 });
+            render(); runAnalysis();
+        });
+        document.getElementById('reset-auto-btn').addEventListener('click', () => {
+            currentSpans.forEach(i => { i.n1=null; i.n2=null; i.n3=null; });
+            els.tbody.querySelectorAll('input[data-type^="n"]').forEach(inp => inp.value = '');
+            runAnalysis();
+        });
+        document.getElementById('generate-summary-btn').addEventListener('click', generateSummary);
+        document.getElementById('copy-summary-btn').addEventListener('click', () => {
+            els.summaryOut.select(); document.execCommand('copy');
+            els.copyMsg.classList.remove('opacity-0'); setTimeout(() => els.copyMsg.classList.add('opacity-0'), 1500);
+        });
+        document.getElementById('import-data-btn').addEventListener('click', importData);
+
+        render(); runAnalysis();
+    </script>
+</body>
+</html>
